@@ -1,13 +1,3 @@
-# Inköpsboten v2.2
+# Inköpsboten v3 Fas 1
 
-Generell reservdelssökning.
-
-Nu ska appen visa prisjämförelse för alla reservdelar där prisdata finns, och visa tydligt meddelande när reservdelen hittas men prisdata saknas.
-
-Testa:
-- två kedjor
-- bakruta Deutz
-- bakljus Golf
-- bromsklossar Grizzly
-- drivknutsdamask Grizzly
-- klippo olja
+Fungerande sidomeny med separata vyer: Dashboard, Maskiner, Fakturor, Artiklar, Inköp, Prisjämförelse, Service och Inställningar.
