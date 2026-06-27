@@ -1,52 +1,84 @@
 import React, { useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Camera, FileText, Search, ShoppingCart, Wrench, PackageCheck, Plus, ChevronRight, Database } from 'lucide-react'
-import { machines, stores } from './data/machines.js'
+import { Camera, FileText, Search, ShoppingCart, Wrench, PackageCheck, Plus, ChevronRight, Database, Trophy, AlertTriangle, Info } from 'lucide-react'
+import { machines, stores, products } from './data/machines.js'
 import './style.css'
 
 function normalize(text) {
   return text.toLowerCase().replace(/[åä]/g, 'a').replace(/ö/g, 'o')
 }
 
-function answerQuestion(query) {
+function extractQty(text) {
+  const q = normalize(text)
+  const numberMatch = q.match(/\b(\d+)\b/)
+  if (numberMatch) return Number(numberMatch[1])
+  if (q.includes('tva')) return 2
+  if (q.includes('tre')) return 3
+  if (q.includes('fyra')) return 4
+  return 1
+}
+
+function scoreProduct(product, query) {
   const q = normalize(query)
-  if (!q.trim()) {
-    return 'Skriv vad du behöver köpa. Exempel: “Jag behöver två sågkedjor” eller “bromsar till Grizzlyn”.'
+  let score = 0
+  for (const keyword of product.keywords) {
+    if (q.includes(normalize(keyword))) score += keyword.length
+  }
+  return score
+}
+
+function findProduct(query) {
+  const scored = products
+    .map(product => ({ product, score: scoreProduct(product, query) }))
+    .filter(row => row.score > 0)
+    .sort((a, b) => b.score - a.score)
+  return scored[0]?.product || null
+}
+
+function sortedOffers(product, qty) {
+  if (!product || !product.offers.length) return []
+  return product.offers
+    .map(offer => ({
+      ...offer,
+      qty,
+      subtotal: offer.unitPrice * qty,
+      total: offer.unitPrice * qty + offer.shipping
+    }))
+    .sort((a, b) => a.total - b.total)
+}
+
+function makeAnswer(query, product, qty, offers) {
+  if (!query.trim()) return 'Skriv vad du behöver köpa. Exempel: “två kedjor”, “bakruta Deutz”, “bromsklossar Grizzly” eller “bakljus Golf”.'
+
+  if (product && offers.length) {
+    const best = offers[0]
+    return `Jag hittade en reservdel som matchar sökningen.
+
+Reservdel:
+${product.name}
+
+Antal: ${qty} st
+
+Rekommendation:
+${best.store} är billigast i jämförelsen: ${best.total} kr totalt.
+
+Obs: Detta är lokal jämförelsedata. Nästa steg är att koppla livepriser från butik.`
   }
 
-  if (q.includes('kedj') || q.includes('sag') || q.includes('ms201') || q.includes('ms 201')) {
-    return `Jag kopplar detta till Stihl MS 201 C-M.
+  if (product && !offers.length) {
+    return `Jag hittade en reservdel som matchar sökningen.
 
-Rekommendation från din historik:
-• Stihl 3/8” P Picco Super PS
-• 1,3 mm spårbredd
-• 35 cm sågkedja har köpts flera gånger
-• Du har även köpt 30 cm kedja
-• Svärd-/kedjepaket: 3/8” PS, 44 DL, 1,3 mm
+Reservdel:
+${product.name}
 
-Nästa steg i appen:
-1. Fråga hur många kedjor du vill köpa.
-2. Jämför ${stores.slice(0,4).join(', ')}.
-3. Räkna med frakt och kampanjer.`
+Men jag saknar prisdata för jämförelse ännu.
+
+Nästa steg:
+• Lägg in butik/pris/frakt manuellt
+• Eller bygg livehämtning från butik`
   }
 
-  if (q.includes('grizzly') || q.includes('broms') || q.includes('atv')) {
-    return 'Jag kopplar detta till Yamaha Grizzly 700 EPS. I registret finns bromsklossar, drivknutsdamasker och bromsdelar registrerade.'
-  }
-
-  if (q.includes('golf') || q.includes('bpu34m')) {
-    return 'Jag kopplar detta till Volkswagen Golf BPU34M. Hittills finns höger kombinationsbackljus från Hova registrerat.'
-  }
-
-  if (q.includes('deutz') || q.includes('bakruta') || q.includes('ruta')) {
-    return 'Jag kopplar detta till Deutz DX 3.60. Registrerad artikel: Bakruta 175-D7732 från Olssons i Ellös.'
-  }
-
-  if (q.includes('blas') || q.includes('br600') || q.includes('br 600')) {
-    return 'Jag kopplar detta till Stihl BR 600 4-MIX. Den är registrerad med artikelnummer 42822000023 från Toolab.'
-  }
-
-  return 'Jag hittar ingen säker maskinkoppling ännu. Sökresultaten nedan kan hjälpa dig välja rätt maskin.'
+  return 'Jag hittar ingen säker reservdel ännu. Sök på artikel, maskin, registreringsnummer eller reservdelstyp.'
 }
 
 function App() {
@@ -54,8 +86,13 @@ function App() {
   const [selectedId, setSelectedId] = useState('M-001')
   const selected = machines.find(m => m.id === selectedId)
 
+  const product = useMemo(() => findProduct(query), [query])
+  const qty = useMemo(() => extractQty(query), [query])
+  const offers = useMemo(() => sortedOffers(product, qty), [product, qty])
+  const answer = useMemo(() => makeAnswer(query, product, qty, offers), [query, product, qty, offers])
+  const productMachine = product ? machines.find(m => m.id === product.machineId) : null
+
   const allPurchases = machines.flatMap(m => m.purchases.map(p => ({ ...p, machine: m.name })))
-  const answer = useMemo(() => answerQuestion(query), [query])
 
   const filtered = useMemo(() => {
     const q = normalize(query)
@@ -75,12 +112,8 @@ function App() {
       <aside className="sidebar">
         <div className="logo">
           <div className="logoIcon">🤖</div>
-          <div>
-            <strong>Inköpsboten</strong>
-            <span>Version 2</span>
-          </div>
+          <div><strong>Inköpsboten</strong><span>Version 2.2</span></div>
         </div>
-
         <nav>
           <a className="active"><Database size={18}/> Översikt</a>
           <a><Wrench size={18}/> Maskiner</a>
@@ -88,7 +121,6 @@ function App() {
           <a><ShoppingCart size={18}/> Inköp</a>
           <a><PackageCheck size={18}/> Artiklar</a>
         </nav>
-
         <div className="stores">
           <strong>Prioriterade butiker</strong>
           {stores.slice(0,4).map(store => <span key={store}>{store}</span>)}
@@ -99,8 +131,8 @@ function App() {
         <header className="hero">
           <div>
             <p className="kicker">Pers personliga inköpsassistent</p>
-            <h1>Maskiner, fakturor och reservdelar</h1>
-            <p>En riktig webbapp för att koppla dina inköp till rätt maskin och föreslå nästa köp smartare.</p>
+            <h1>Reservdelssökning med jämförelser</h1>
+            <p>Prisjämförelse visas nu för alla reservdelar där appen har prisdata.</p>
           </div>
           <button className="addBtn"><Plus size={18}/> Lägg till maskin</button>
         </header>
@@ -108,43 +140,76 @@ function App() {
         <section className="stats">
           <div><strong>{machines.length}</strong><span>maskiner & fordon</span></div>
           <div><strong>{allPurchases.length}</strong><span>kopplade inköp</span></div>
-          <div><strong>{stores.length}</strong><span>leverantörer</span></div>
-          <div><strong>v2</strong><span>appversion</span></div>
+          <div><strong>{products.length}</strong><span>sökbara reservdelar</span></div>
+          <div><strong>v2.2</strong><span>generell sökning</span></div>
         </section>
 
         <section className="quickActions">
           <button><Camera size={20}/> Identifiera del</button>
-          <button><Search size={20}/> Sök artikel</button>
+          <button><Search size={20}/> Sök reservdel</button>
           <button><FileText size={20}/> Läs in faktura</button>
           <button><ShoppingCart size={20}/> Nytt inköp</button>
         </section>
 
         <section className="assistantCard">
           <div>
-            <h2>Fråga inköpsboten</h2>
-            <p>Testa: “Jag behöver nya sågkedjor”</p>
+            <h2>Reservdelssökning</h2>
+            <p>Testa: “två kedjor”, “bakruta Deutz”, “bromsklossar Grizzly” eller “bakljus Golf”.</p>
           </div>
           <div className="searchBar">
-            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Vad behöver du köpa?" />
+            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Skriv reservdel, maskin eller artikelnummer" />
             <button>Analysera</button>
           </div>
           <pre>{answer}</pre>
+
+          {product && (
+            <section className="resultBox">
+              <div className="resultHeader">
+                <div>
+                  <h3>{product.name}</h3>
+                  <p>{product.category} · {productMachine?.name || 'Maskin saknas'}</p>
+                </div>
+                <span><Info size={16}/> {product.offers.length ? 'Prisdata finns' : 'Prisdata saknas'}</span>
+              </div>
+
+              {offers.length ? (
+                <>
+                  <div className="table">
+                    <div className="tableHead">
+                      <span>Butik</span><span>Pris/st</span><span>Antal</span><span>Frakt</span><span>Totalt</span>
+                    </div>
+                    {offers.map((offer, index) => (
+                      <div className={index === 0 ? 'tableRow best' : 'tableRow'} key={offer.store}>
+                        <span>{index === 0 && <Trophy size={15}/>} {offer.store}</span>
+                        <span>{offer.unitPrice} kr</span>
+                        <span>{offer.qty}</span>
+                        <span>{offer.shipping} kr</span>
+                        <strong>{offer.total} kr</strong>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="note"><AlertTriangle size={15}/> Ej livepriser ännu. Tabellen bygger på sparad prisdata/exempeldata.</p>
+                </>
+              ) : (
+                <div className="missingPrices">
+                  <AlertTriangle size={22}/>
+                  <div>
+                    <strong>Ingen prisjämförelse ännu</strong>
+                    <p>Reservdelen är identifierad men saknar butikspriser. Nästa steg är att lägga in priser eller koppla livehämtning.</p>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
         </section>
 
         <section className="layout">
           <div className="machineList">
             <h2>Maskinregister</h2>
             {filtered.map(machine => (
-              <button
-                key={machine.id}
-                className={machine.id === selectedId ? 'machineRow active' : 'machineRow'}
-                onClick={() => setSelectedId(machine.id)}
-              >
+              <button key={machine.id} className={machine.id === selectedId ? 'machineRow active' : 'machineRow'} onClick={() => setSelectedId(machine.id)}>
                 <span className="machineIcon">{machine.icon}</span>
-                <span>
-                  <strong>{machine.name}</strong>
-                  <small>{machine.id} · {machine.type}</small>
-                </span>
+                <span><strong>{machine.name}</strong><small>{machine.id} · {machine.type}</small></span>
                 <ChevronRight size={16}/>
               </button>
             ))}
@@ -160,19 +225,11 @@ function App() {
               <span className={selected.status === 'Aktiv' ? 'status ok' : 'status warn'}>{selected.status}</span>
             </div>
 
-            <div className="tags">
-              {selected.tags.map(tag => <span key={tag}>{tag}</span>)}
-            </div>
+            <div className="tags">{selected.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
 
             <section className="subcard">
               <h3>Kända reservdelar</h3>
-              {selected.knownParts.length ? (
-                <ul>
-                  {selected.knownParts.map(part => <li key={part}>{part}</li>)}
-                </ul>
-              ) : (
-                <p className="empty">Inga reservdelar registrerade ännu.</p>
-              )}
+              {selected.knownParts.length ? <ul>{selected.knownParts.map(part => <li key={part}>{part}</li>)}</ul> : <p className="empty">Inga reservdelar registrerade ännu.</p>}
             </section>
 
             <section className="subcard">
@@ -181,18 +238,12 @@ function App() {
                 <div className="purchaseList">
                   {selected.purchases.map((p, index) => (
                     <article key={index}>
-                      <div>
-                        <strong>{p.item}</strong>
-                        <span>{p.date} · {p.supplier}</span>
-                        {p.articleNo && <span>Art.nr {p.articleNo}</span>}
-                      </div>
+                      <div><strong>{p.item}</strong><span>{p.date} · {p.supplier}</span>{p.articleNo && <span>Art.nr {p.articleNo}</span>}</div>
                       <div className="price">{p.price}</div>
                     </article>
                   ))}
                 </div>
-              ) : (
-                <p className="empty">Inga inköp kopplade ännu.</p>
-              )}
+              ) : <p className="empty">Inga inköp kopplade ännu.</p>}
             </section>
           </div>
         </section>

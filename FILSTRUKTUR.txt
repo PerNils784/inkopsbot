@@ -1,7 +1,1 @@
-OK package.json
-OK index.html
-OK README.md
-OK vercel.json
-OK src/App.jsx
-OK src/style.css
-OK src/data/machines.js
+OK v2.2 generell reservdelssokning

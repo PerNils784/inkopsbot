@@ -1,18 +1,13 @@
-# Inköpsboten v2
+# Inköpsboten v2.2
 
-React/Vite-version av Pers inköpsassistent.
+Generell reservdelssökning.
 
-## Vercel
+Nu ska appen visa prisjämförelse för alla reservdelar där prisdata finns, och visa tydligt meddelande när reservdelen hittas men prisdata saknas.
 
-Framework: Vite  
-Build command: npm run build  
-Output directory: dist
-
-## Struktur
-
-- index.html
-- package.json
-- vercel.json
-- src/App.jsx
-- src/style.css
-- src/data/machines.js
+Testa:
+- två kedjor
+- bakruta Deutz
+- bakljus Golf
+- bromsklossar Grizzly
+- drivknutsdamask Grizzly
+- klippo olja
