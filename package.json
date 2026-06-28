@@ -1,6 +1,6 @@
 {
-  "name": "inkopsbot-v3-fas1",
-  "version": "3.0.0",
+  "name": "inkopsbot-v4-fakturacentral",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "scripts": {

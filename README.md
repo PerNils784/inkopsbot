@@ -1,3 +1,7 @@
-# Inköpsboten v3 Fas 1
+# Inköpsboten v4 – Fakturacentral
 
-Fungerande sidomeny med separata vyer: Dashboard, Maskiner, Fakturor, Artiklar, Inköp, Prisjämförelse, Service och Inställningar.
+Nyheter: fakturalista, fakturadetalj, artiklar per faktura och knapp för original-PDF.
+
+PDF:er ska ligga i public/invoices.
+
+Commit: Inköpsboten v4 fakturacentral
